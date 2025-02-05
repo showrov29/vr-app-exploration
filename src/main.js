@@ -5,7 +5,7 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 
 let scene, camera, renderer, cube, controls;
-
+let lookStatusDiv;
 init();
 animate();
 
@@ -80,6 +80,41 @@ function animate() {
         renderer.render(scene, camera);
         renderer.xr.enabled = true;
         // controls.update();
+
+         // Check if the camera is looking at the cube
+         if (isLookingAtCube()) {
+          console.log("Looking at the cube!");
+          
+          // lookStatusDiv.textContent = "Looking at the cube!";
+          cube.material.color.set(0xff0000); // Change cube color to red
+      } else {
+          console.log("Not looking at the cube");
+          // lookStatusDiv.textContent = "Not looking at the cube";
+          cube.material.color.set(0x00ff00); // Reset cube color to green
+      }
     });
 
+}
+
+
+function isLookingAtCube() {
+  // Get the camera's forward direction
+  const cameraForward = new THREE.Vector3(0, 0, -1);
+  cameraForward.applyQuaternion(camera.quaternion);
+
+  // Get the direction from the camera to the cube
+  const cubeDirection = new THREE.Vector3();
+  cubeDirection.subVectors(cube.position, camera.position).normalize();
+
+  // Calculate the dot product to get the cosine of the angle
+  const dot = cameraForward.dot(cubeDirection);
+
+  // Convert the dot product to an angle in degrees
+  const angle = Math.acos(dot) * (180 / Math.PI);
+
+  // Define a threshold angle (e.g., 10 degrees)
+  const threshold = 10;
+
+  // Check if the angle is within the threshold
+  return angle <= threshold;
 }
