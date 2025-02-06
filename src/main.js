@@ -110,20 +110,39 @@ function isLookingAtCube() {
   // Get the camera's forward direction
   const cameraForward = new THREE.Vector3(0, 0, -1);
   cameraForward.applyQuaternion(camera.quaternion);
+  console.log("Camera Forward Direction: ", cameraForward);
 
   // Get the direction from the camera to the cube
   const cubeDirection = new THREE.Vector3();
   cubeDirection.subVectors(cube.position, camera.position).normalize();
+  console.log("Direction to Cube: ", cubeDirection);
 
   // Calculate the dot product to get the cosine of the angle
   const dot = cameraForward.dot(cubeDirection);
+  console.log("Dot Product (Cosine of angle): ", dot);
 
   // Convert the dot product to an angle in degrees
   const angle = Math.acos(dot) * (180 / Math.PI);
+  console.log("Angle between camera and cube: ", angle);
 
   // Define a threshold angle (e.g., 10 degrees)
   const threshold = 10;
+  console.log("Angle Threshold: ", threshold);
 
-  // Check if the angle is within the threshold
-  return angle <= threshold;
+  // Check if the angle is within the threshold and cube is in front of the camera
+  if (angle <= threshold) {
+    console.log("Looking at the cube within the threshold angle.");
+    return true;
+  }
+
+  // If the dot product is negative, it means the cube is behind the camera
+  if (dot < 0) {
+    console.log("Cube is behind the camera.");
+    return false; // Cube is behind the camera
+  }
+
+  console.log("Cube is not in front or behind the camera.");
+  return false; // Cube is neither in front nor behind the camera
 }
+
+
