@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'; // Correct import path
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
 let scene, camera, renderer;
-let previousPosition = null;
+let leftController, rightController;
+let leftPreviousPosition = null, rightPreviousPosition = null;
 let previousTimestamp = null;
 
 init();
@@ -31,20 +32,33 @@ function init() {
   light.position.set(10, 10, 10);
   scene.add(light);
 
-  // Create a virtual "hand" object
-  const geometry = new THREE.SphereGeometry(0.1, 32, 32);
-  const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  const hand = new THREE.Mesh(geometry, material);
-  hand.position.set(0, 1.5, -1); // Initial position
-  scene.add(hand);
+  // Create a cube
+  const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+  const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+  const cube = new THREE.Mesh(geometry, material);
+  cube.position.set(0, 1.5, -1);
+  scene.add(cube);
 
-  // Simulate hand movement
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowUp') hand.position.z -= 0.1; // Move forward
-    if (event.key === 'ArrowDown') hand.position.z += 0.1; // Move backward
-    if (event.key === 'ArrowLeft') hand.position.x -= 0.1; // Move left
-    if (event.key === 'ArrowRight') hand.position.x += 0.1; // Move right
-  });
+  // Add XR controllers
+  leftController = renderer.xr.getController(0); // Left controller
+  rightController = renderer.xr.getController(1); // Right controller
+
+  // Add visual representation for controllers
+  const controllerModel = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  );
+  leftController.add(controllerModel.clone());
+  rightController.add(controllerModel.clone());
+
+  scene.add(leftController);
+  scene.add(rightController);
+
+  // Event listeners for controller interaction
+  leftController.addEventListener('selectstart', () => console.log('Left controller select start'));
+  leftController.addEventListener('selectend', () => console.log('Left controller select end'));
+  rightController.addEventListener('selectstart', () => console.log('Right controller select start'));
+  rightController.addEventListener('selectend', () => console.log('Right controller select end'));
 }
 
 function animate() {
@@ -54,33 +68,52 @@ function animate() {
 function render(time) {
   const session = renderer.xr.getSession();
   if (session) {
-    // Simulate hand movement using the virtual "hand" object
-    const hand = scene.children.find(obj => obj.material && obj.material.color.equals(new THREE.Color(0xff0000)));
-    if (hand) {
-      const currentPosition = hand.position;
-      const currentTimestamp = time;
+    // Calculate speed for left controller
+    if (leftController && leftController.position) {
+      const leftPosition = leftController.position;
 
-      if (previousPosition && previousTimestamp) {
-        // Calculate distance moved
-        const deltaX = currentPosition.x - previousPosition.x;
-        const deltaY = currentPosition.y - previousPosition.y;
-        const deltaZ = currentPosition.z - previousPosition.z;
-
+      // Check if the controller has moved
+      if (leftPreviousPosition) {
+        const deltaX = leftPosition.x - leftPreviousPosition.x;
+        const deltaY = leftPosition.y - leftPreviousPosition.y;
+        const deltaZ = leftPosition.z - leftPreviousPosition.z;
         const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
 
-        // Calculate time difference
-        const deltaTime = (currentTimestamp - previousTimestamp) / 1000; // Convert to seconds
-
-        // Calculate speed
-        const speed = distanceMoved / deltaTime;
-
-        console.log(`Hand movement speed: ${speed.toFixed(2)} m/s`);
+        if (distanceMoved > 0) { // Only log if the controller has moved
+          const deltaTime = (time - previousTimestamp) / 1000; // Convert to seconds
+          const speed = distanceMoved / deltaTime;
+          console.log(`Left controller speed: ${speed.toFixed(2)} m/s`);
+        }
       }
 
-      // Update previous values
-      previousPosition = { ...currentPosition };
-      previousTimestamp = currentTimestamp;
+      // Update previous position
+      leftPreviousPosition = leftPosition.clone();
     }
+
+    // Calculate speed for right controller
+    if (rightController && rightController.position) {
+      const rightPosition = rightController.position;
+
+      // Check if the controller has moved
+      if (rightPreviousPosition) {
+        const deltaX = rightPosition.x - rightPreviousPosition.x;
+        const deltaY = rightPosition.y - rightPreviousPosition.y;
+        const deltaZ = rightPosition.z - rightPreviousPosition.z;
+        const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+
+        if (distanceMoved > 0) { // Only log if the controller has moved
+          const deltaTime = (time - previousTimestamp) / 1000; // Convert to seconds
+          const speed = distanceMoved / deltaTime;
+          console.log(`Right controller speed: ${speed.toFixed(2)} m/s`);
+        }
+      }
+
+      // Update previous position
+      rightPreviousPosition = rightPosition.clone();
+    }
+
+    // Update timestamp
+    previousTimestamp = time;
   }
 
   // Render the scene
