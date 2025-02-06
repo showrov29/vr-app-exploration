@@ -1,11 +1,9 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'; // Correct import path
 
-let scene, camera, renderer, cube, controls;
-let xrSession = null;
-let referenceSpace = null;
+let scene, camera, renderer;
+let previousPosition = null;
+let previousTimestamp = null;
 
 init();
 animate();
@@ -13,7 +11,7 @@ animate();
 function init() {
   // Scene setup
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x444444);
+  scene.background = new THREE.Color(0x87ceeb);
 
   // Camera setup
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -22,127 +20,69 @@ function init() {
   // Renderer setup
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.xr.enabled = true;
+  renderer.xr.enabled = true; // Enable WebXR
   document.body.appendChild(renderer.domElement);
 
-  // VR Button
+  // Add VR button
   document.body.appendChild(VRButton.createButton(renderer));
 
-  // Controls setup
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.update();
-
   // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambientLight);
+  const light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(10, 10, 10);
+  scene.add(light);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  directionalLight.position.set(1, 1, 1);
-  scene.add(directionalLight);
+  // Create a virtual "hand" object
+  const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+  const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const hand = new THREE.Mesh(geometry, material);
+  hand.position.set(0, 1.5, -1); // Initial position
+  scene.add(hand);
 
-  // Cube
-  const geometry = new THREE.BoxGeometry();
-  const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-  cube = new THREE.Mesh(geometry, material);
-  cube.position.set(0, 1.6, -2);
-  scene.add(cube);
-
-  // Floor
-  const floorGeometry = new THREE.PlaneGeometry(20, 20);
-  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
-  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  scene.add(floor);
-
-  // Window resize handler
-  window.addEventListener('resize', onWindowResize, false);
-
-  // Request a reference space for WebXR
-  renderer.xr.addEventListener('sessionstart', (event) => {
-    xrSession = renderer.xr.getSession();
-    xrSession.requestReferenceSpace('local').then((refSpace) => {
-      referenceSpace = refSpace;
-    });
+  // Simulate hand movement
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowUp') hand.position.z -= 0.1; // Move forward
+    if (event.key === 'ArrowDown') hand.position.z += 0.1; // Move backward
+    if (event.key === 'ArrowLeft') hand.position.x -= 0.1; // Move left
+    if (event.key === 'ArrowRight') hand.position.x += 0.1; // Move right
   });
-}
-
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function animate() {
-  renderer.setAnimationLoop((time, frame) => {
-    // Cube animation
-    cube.rotation.y += 0.01;
-    cube.rotation.x += 0.005;
+  renderer.setAnimationLoop(render);
+}
 
-    // Check if WebXR frame and reference space are available
-    if (frame && referenceSpace) {
-      // Get the viewer's pose
-      const pose = frame.getViewerPose(referenceSpace);
-      if (pose) {
-        const view = pose.views[0]; // Assuming single view for simplicity (e.g., AR)
-        const position = view.transform.position;
-        const orientation = view.transform.orientation;
+function render(time) {
+  const session = renderer.xr.getSession();
+  if (session) {
+    // Simulate hand movement using the virtual "hand" object
+    const hand = scene.children.find(obj => obj.material && obj.material.color.equals(new THREE.Color(0xff0000)));
+    if (hand) {
+      const currentPosition = hand.position;
+      const currentTimestamp = time;
 
-        console.log("Viewer Pose:");
-        console.log(`Position - x: ${position.x}, y: ${position.y}, z: ${position.z}`);
-        console.log(`Orientation - x: ${orientation.x}, y: ${orientation.y}, z: ${orientation.z}, w: ${orientation.w}`);
+      if (previousPosition && previousTimestamp) {
+        // Calculate distance moved
+        const deltaX = currentPosition.x - previousPosition.x;
+        const deltaY = currentPosition.y - previousPosition.y;
+        const deltaZ = currentPosition.z - previousPosition.z;
+
+        const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+
+        // Calculate time difference
+        const deltaTime = (currentTimestamp - previousTimestamp) / 1000; // Convert to seconds
+
+        // Calculate speed
+        const speed = distanceMoved / deltaTime;
+
+        console.log(`Hand movement speed: ${speed.toFixed(2)} m/s`);
       }
+
+      // Update previous values
+      previousPosition = { ...currentPosition };
+      previousTimestamp = currentTimestamp;
     }
-
-    // Check if the camera is looking at the cube
-    if (isLookingAtCube()) {
-      console.log("Looking at the cube!");
-      cube.material.color.set(0xff0000); // Change cube color to red
-    } else {
-      console.log("Not looking at the cube");
-      cube.material.color.set(0x00ff00); // Reset cube color to green
-    }
-
-    renderer.render(scene, camera);
-  });
-}
-
-function isLookingAtCube() {
-  // Get the camera's forward direction
-  const cameraForward = new THREE.Vector3(0, 0, -1);
-  cameraForward.applyQuaternion(camera.quaternion);
-  console.log("Camera Forward Direction: ", cameraForward);
-
-  // Get the direction from the camera to the cube
-  const cubeDirection = new THREE.Vector3();
-  cubeDirection.subVectors(cube.position, camera.position).normalize();
-  console.log("Direction to Cube: ", cubeDirection);
-
-  // Calculate the dot product to get the cosine of the angle
-  const dot = cameraForward.dot(cubeDirection);
-  console.log("Dot Product (Cosine of angle): ", dot);
-
-  // Convert the dot product to an angle in degrees
-  const angle = Math.acos(dot) * (180 / Math.PI);
-  console.log("Angle between camera and cube: ", angle);
-
-  // Define a threshold angle (e.g., 10 degrees)
-  const threshold = 10;
-  console.log("Angle Threshold: ", threshold);
-
-  // Check if the angle is within the threshold and cube is in front of the camera
-  if (angle <= threshold) {
-    console.log("Looking at the cube within the threshold angle.");
-    return true;
   }
 
-  // If the dot product is negative, it means the cube is behind the camera
-  if (dot < 0) {
-    console.log("Cube is behind the camera.");
-    return false; // Cube is behind the camera
-  }
-
-  console.log("Cube is not in front or behind the camera.");
-  return false; // Cube is neither in front nor behind the camera
+  // Render the scene
+  renderer.render(scene, camera);
 }
-
-
