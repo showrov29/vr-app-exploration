@@ -1,12 +1,14 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { VRButton } from 'three/addons/webxr/VRButton.js';
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { VRButton } from "three/addons/webxr/VRButton.js";
 
 let scene, camera, renderer, cube, controls;
 let xrSession = null;
 let referenceSpace = null;
-
+let backTurnedStartTime = null;
+let totalBackTurnedDuration = 0;
+let isBackTurned = false;
 init();
 animate();
 
@@ -16,7 +18,12 @@ function init() {
   scene.background = new THREE.Color(0x444444);
 
   // Camera setup
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
   camera.position.set(0, 1.6, 3);
 
   // Renderer setup
@@ -55,12 +62,12 @@ function init() {
   scene.add(floor);
 
   // Window resize handler
-  window.addEventListener('resize', onWindowResize, false);
+  window.addEventListener("resize", onWindowResize, false);
 
   // Request a reference space for WebXR
-  renderer.xr.addEventListener('sessionstart', (event) => {
+  renderer.xr.addEventListener("sessionstart", (event) => {
     xrSession = renderer.xr.getSession();
-    xrSession.requestReferenceSpace('local').then((refSpace) => {
+    xrSession.requestReferenceSpace("local").then((refSpace) => {
       referenceSpace = refSpace;
     });
   });
@@ -80,7 +87,6 @@ function animate() {
 
     // Check if WebXR frame and reference space are available
     if (frame && referenceSpace) {
-      // Get the viewer's pose
       const pose = frame.getViewerPose(referenceSpace);
       if (pose) {
         const view = pose.views[0]; // Assuming single view for simplicity (e.g., AR)
@@ -88,18 +94,44 @@ function animate() {
         const orientation = view.transform.orientation;
 
         console.log("Viewer Pose:");
-        console.log(`Position - x: ${position.x}, y: ${position.y}, z: ${position.z}`);
-        console.log(`Orientation - x: ${orientation.x}, y: ${orientation.y}, z: ${orientation.z}, w: ${orientation.w}`);
+        console.log(
+          `Position - x: ${position.x}, y: ${position.y}, z: ${position.z}`
+        );
+        console.log(
+          `Orientation - x: ${orientation.x}, y: ${orientation.y}, z: ${orientation.z}, w: ${orientation.w}`
+        );
       }
     }
 
     // Check if the camera is looking at the cube
-    if (isLookingAtCube()) {
+    const isFacingCube = isLookingAtCube();
+
+    if (isFacingCube) {
       console.log("Looking at the cube!");
       cube.material.color.set(0xff0000); // Change cube color to red
+
+      // If user was turned away, log time and reset
+      if (isBackTurned) {
+        totalBackTurnedDuration =
+          (performance.now() - backTurnedStartTime) / 1000; // Convert to seconds
+        console.log(
+          `Back was turned for: ${totalBackTurnedDuration.toFixed(2)} seconds`
+        );
+
+        // Reset the timer
+        backTurnedStartTime = null;
+        totalBackTurnedDuration = 0;
+        isBackTurned = false;
+      }
     } else {
       console.log("Not looking at the cube");
       cube.material.color.set(0x00ff00); // Reset cube color to green
+
+      // Start the timer only if it's the first time user turns away
+      if (!isBackTurned) {
+        backTurnedStartTime = performance.now();
+        isBackTurned = true;
+      }
     }
 
     renderer.render(scene, camera);
@@ -110,39 +142,37 @@ function isLookingAtCube() {
   // Get the camera's forward direction
   const cameraForward = new THREE.Vector3(0, 0, -1);
   cameraForward.applyQuaternion(camera.quaternion);
-  console.log("Camera Forward Direction: ", cameraForward);
+  // console.log("Camera Forward Direction: ", cameraForward);
 
   // Get the direction from the camera to the cube
   const cubeDirection = new THREE.Vector3();
   cubeDirection.subVectors(cube.position, camera.position).normalize();
-  console.log("Direction to Cube: ", cubeDirection);
+  // console.log("Direction to Cube: ", cubeDirection);
 
   // Calculate the dot product to get the cosine of the angle
   const dot = cameraForward.dot(cubeDirection);
-  console.log("Dot Product (Cosine of angle): ", dot);
+  // console.log("Dot Product (Cosine of angle): ", dot);
 
   // Convert the dot product to an angle in degrees
   const angle = Math.acos(dot) * (180 / Math.PI);
-  console.log("Angle between camera and cube: ", angle);
+  // console.log("Angle between camera and cube: ", angle);
 
   // Define a threshold angle (e.g., 10 degrees)
   const threshold = 10;
-  console.log("Angle Threshold: ", threshold);
+  // console.log("Angle Threshold: ", threshold);
 
   // Check if the angle is within the threshold and cube is in front of the camera
   if (angle <= threshold) {
-    console.log("Looking at the cube within the threshold angle.");
+    // console.log("Looking at the cube within the threshold angle.");
     return true;
   }
 
   // If the dot product is negative, it means the cube is behind the camera
   if (dot < 0) {
-    console.log("Cube is behind the camera.");
+    // console.log("Cube is behind the camera.");
     return false; // Cube is behind the camera
   }
 
-  console.log("Cube is not in front or behind the camera.");
+  // console.log("Cube is not in front or behind the camera.");
   return false; // Cube is neither in front nor behind the camera
 }
-
-
