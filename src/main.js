@@ -1,121 +1,98 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
-let scene, camera, renderer;
-let leftController, rightController;
-let leftPreviousPosition = null, rightPreviousPosition = null;
-let previousTimestamp = null;
+// Initialize Three.js scene, camera, and renderer
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-init();
-animate();
+// Enable WebXR
+renderer.xr.enabled = true;
 
-function init() {
-  // Scene setup
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
+// Add a button to enter VR mode
+document.body.appendChild(VRButton.createButton(renderer));
 
-  // Camera setup
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 1.6, 3);
+// Create a simple ground plane
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(10, 10),
+    new THREE.MeshStandardMaterial({ color: 0x808080 })
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
 
-  // Renderer setup
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.xr.enabled = true; // Enable WebXR
-  document.body.appendChild(renderer.domElement);
+// Add lighting
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10, 10, 10).normalize();
+scene.add(light);
 
-  // Add VR button
-  document.body.appendChild(VRButton.createButton(renderer));
+// Player head (tracked via WebXR)
+const playerHead = new THREE.Object3D();
+scene.add(playerHead);
 
-  // Lighting
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(10, 10, 10);
-  scene.add(light);
-
-  // Create a cube
-  const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-  const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-  const cube = new THREE.Mesh(geometry, material);
-  cube.position.set(0, 1.5, -1);
-  scene.add(cube);
-
-  // Add XR controllers
-  leftController = renderer.xr.getController(0); // Left controller
-  rightController = renderer.xr.getController(1); // Right controller
-
-  // Add visual representation for controllers
-  const controllerModel = new THREE.Mesh(
-    new THREE.SphereGeometry(0.05, 32, 32),
+// NPC head (static or animated)
+const npcHead = new THREE.Mesh(
+    new THREE.SphereGeometry(0.2, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0xff0000 })
-  );
-  leftController.add(controllerModel.clone());
-  rightController.add(controllerModel.clone());
+);
+npcHead.position.set(0, 1.5, -3); // Place NPC at a fixed position
+scene.add(npcHead);
 
-  scene.add(leftController);
-  scene.add(rightController);
+// Function to calculate height difference
+function calculateHeightDifference(playerHeight, npcHeight) {
+    const heightDifference = playerHeight - npcHeight;
 
-  // Event listeners for controller interaction
-  leftController.addEventListener('selectstart', () => console.log('Left controller select start'));
-  leftController.addEventListener('selectend', () => console.log('Left controller select end'));
-  rightController.addEventListener('selectstart', () => console.log('Right controller select start'));
-  rightController.addEventListener('selectend', () => console.log('Right controller select end'));
+    console.log(`Player Y: ${playerHeight}, NPC Y: ${npcHeight}, Difference: ${heightDifference}`);
+
+    // Determine sentiment based on height difference
+    if (heightDifference > 0.5) {
+        console.log("Player is looking down at the NPC.");
+    } else if (heightDifference < -0.5) {
+        console.log("Player is looking up at the NPC.");
+    } else {
+        console.log("Player is at eye level with the NPC.");
+    }
+
+    return heightDifference;
 }
 
+// Function to adjust NPC behavior based on sentiment
+function adjustNPCBehavior(heightDifference) {
+    if (heightDifference > 0.5) {
+        console.log("NPC feels intimidated.");
+        // Decrease NPC's health meter
+    } else if (heightDifference < -0.5) {
+        console.log("NPC feels dominant.");
+        // Increase NPC's confidence meter
+    } else {
+        console.log("NPC feels neutral.");
+        // Maintain NPC's current state
+    }
+}
+
+let prevPlayerY = null;
+
+// Animation loop
 function animate() {
-  renderer.setAnimationLoop(render);
-}
+    renderer.setAnimationLoop(() => {
+        // Update playerHead position to match the camera (player's head)
+        playerHead.position.copy(camera.position);
 
-function render(time) {
-  const session = renderer.xr.getSession();
-  if (session) {
-    // Calculate speed for left controller
-    if (leftController && leftController.position) {
-      const leftPosition = leftController.position;
+        const playerHeight = playerHead.position.y;
+        const npcHeight = npcHead.position.y;
 
-      // Check if the controller has moved
-      if (leftPreviousPosition) {
-        const deltaX = leftPosition.x - leftPreviousPosition.x;
-        const deltaY = leftPosition.y - leftPreviousPosition.y;
-        const deltaZ = leftPosition.z - leftPreviousPosition.z;
-        const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+        // Check if the player's y position has changed
+        if (prevPlayerY === null || Math.abs(playerHeight - prevPlayerY) > 0.01) {
+            // Calculate height difference and log sentiment
+            const heightDifference = calculateHeightDifference(playerHeight, npcHeight);
+            adjustNPCBehavior(heightDifference);
 
-        if (distanceMoved > 0) { // Only log if the controller has moved
-          const deltaTime = (time - previousTimestamp) / 1000; // Convert to seconds
-          const speed = distanceMoved / deltaTime;
-          console.log(`Left controller speed: ${speed.toFixed(2)} m/s`);
+            // Update previous player y position
+            prevPlayerY = playerHeight;
         }
-      }
 
-      // Update previous position
-      leftPreviousPosition = leftPosition.clone();
-    }
-
-    // Calculate speed for right controller
-    if (rightController && rightController.position) {
-      const rightPosition = rightController.position;
-
-      // Check if the controller has moved
-      if (rightPreviousPosition) {
-        const deltaX = rightPosition.x - rightPreviousPosition.x;
-        const deltaY = rightPosition.y - rightPreviousPosition.y;
-        const deltaZ = rightPosition.z - rightPreviousPosition.z;
-        const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-
-        if (distanceMoved > 0) { // Only log if the controller has moved
-          const deltaTime = (time - previousTimestamp) / 1000; // Convert to seconds
-          const speed = distanceMoved / deltaTime;
-          console.log(`Right controller speed: ${speed.toFixed(2)} m/s`);
-        }
-      }
-
-      // Update previous position
-      rightPreviousPosition = rightPosition.clone();
-    }
-
-    // Update timestamp
-    previousTimestamp = time;
-  }
-
-  // Render the scene
-  renderer.render(scene, camera);
+        renderer.render(scene, camera);
+    });
 }
+animate();
