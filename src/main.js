@@ -1,10 +1,16 @@
-import * as THREE from 'three';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import * as THREE from "three";
+import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
 
 let scene, camera, renderer;
 let leftController, rightController;
-let leftPreviousPosition = null, rightPreviousPosition = null;
+let leftPreviousPosition = null;
+let rightPreviousPosition = null;
 let previousTimestamp = null;
+let cube;
+let leftStartTime = null,
+  rightStartTime = null;
+let leftStartPosition = null,
+  rightStartPosition = null;
 
 init();
 animate();
@@ -15,13 +21,18 @@ function init() {
   scene.background = new THREE.Color(0x87ceeb);
 
   // Camera setup
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
   camera.position.set(0, 1.6, 3);
 
   // Renderer setup
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.xr.enabled = true; // Enable WebXR
+  renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
 
   // Add VR button
@@ -32,16 +43,16 @@ function init() {
   light.position.set(10, 10, 10);
   scene.add(light);
 
-  // Create a cube
+  // Create a cube (target object)
   const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
   const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-  const cube = new THREE.Mesh(geometry, material);
+  cube = new THREE.Mesh(geometry, material);
   cube.position.set(0, 1.5, -1);
   scene.add(cube);
 
   // Add XR controllers
-  leftController = renderer.xr.getController(0); // Left controller
-  rightController = renderer.xr.getController(1); // Right controller
+  leftController = renderer.xr.getController(0);
+  rightController = renderer.xr.getController(1);
 
   // Add visual representation for controllers
   const controllerModel = new THREE.Mesh(
@@ -53,12 +64,6 @@ function init() {
 
   scene.add(leftController);
   scene.add(rightController);
-
-  // Event listeners for controller interaction
-  leftController.addEventListener('selectstart', () => console.log('Left controller select start'));
-  leftController.addEventListener('selectend', () => console.log('Left controller select end'));
-  rightController.addEventListener('selectstart', () => console.log('Right controller select start'));
-  rightController.addEventListener('selectend', () => console.log('Right controller select end'));
 }
 
 function animate() {
@@ -68,54 +73,52 @@ function animate() {
 function render(time) {
   const session = renderer.xr.getSession();
   if (session) {
-    // Calculate speed for left controller
-    if (leftController && leftController.position) {
-      const leftPosition = leftController.position;
-
-      // Check if the controller has moved
-      if (leftPreviousPosition) {
-        const deltaX = leftPosition.x - leftPreviousPosition.x;
-        const deltaY = leftPosition.y - leftPreviousPosition.y;
-        const deltaZ = leftPosition.z - leftPreviousPosition.z;
-        const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-
-        if (distanceMoved > 0) { // Only log if the controller has moved
-          const deltaTime = (time - previousTimestamp) / 1000; // Convert to seconds
-          const speed = distanceMoved / deltaTime;
-          console.log(`Left controller speed: ${speed.toFixed(2)} m/s`);
-        }
-      }
-
-      // Update previous position
-      leftPreviousPosition = leftPosition.clone();
-    }
-
-    // Calculate speed for right controller
-    if (rightController && rightController.position) {
-      const rightPosition = rightController.position;
-
-      // Check if the controller has moved
-      if (rightPreviousPosition) {
-        const deltaX = rightPosition.x - rightPreviousPosition.x;
-        const deltaY = rightPosition.y - rightPreviousPosition.y;
-        const deltaZ = rightPosition.z - rightPreviousPosition.z;
-        const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-
-        if (distanceMoved > 0) { // Only log if the controller has moved
-          const deltaTime = (time - previousTimestamp) / 1000; // Convert to seconds
-          const speed = distanceMoved / deltaTime;
-          console.log(`Right controller speed: ${speed.toFixed(2)} m/s`);
-        }
-      }
-
-      // Update previous position
-      rightPreviousPosition = rightPosition.clone();
-    }
-
-    // Update timestamp
-    previousTimestamp = time;
+    trackController(leftController, "Left", time);
+    trackController(rightController, "Right", time);
   }
 
-  // Render the scene
   renderer.render(scene, camera);
+}
+
+function trackController(controller, hand, time) {
+  if (!controller || !controller.position) return;
+
+  const position = controller.position.clone();
+  const cubePosition = cube.position.clone();
+  const distanceToCube = position.distanceTo(cubePosition);
+
+  // Define proximity threshold (adjust as needed)
+  const reachThreshold = 0.2;
+
+  if (distanceToCube > reachThreshold) {
+    // If hand moves & tracking hasn't started, start tracking
+    if (hand === "Left") {
+      if (!leftStartTime) {
+        leftStartTime = time;
+        leftStartPosition = position.clone();
+      }
+    } else {
+      if (!rightStartTime) {
+        rightStartTime = time;
+        rightStartPosition = position.clone();
+      }
+    }
+  } else {
+    // Hand reached the object, calculate speed
+    if (hand === "Left" && leftStartTime) {
+      const elapsedTime = (time - leftStartTime) / 1000; // Convert to seconds
+      const distanceMoved = leftStartPosition.distanceTo(position);
+      const speed = distanceMoved / elapsedTime;
+      console.log(`Left hand speed to reach cube: ${speed.toFixed(2)} m/s`);
+      leftStartTime = null; // Reset for next attempt
+    }
+
+    if (hand === "Right" && rightStartTime) {
+      const elapsedTime = (time - rightStartTime) / 1000;
+      const distanceMoved = rightStartPosition.distanceTo(position);
+      const speed = distanceMoved / elapsedTime;
+      console.log(`Right hand speed to reach cube: ${speed.toFixed(2)} m/s`);
+      rightStartTime = null;
+    }
+  }
 }
