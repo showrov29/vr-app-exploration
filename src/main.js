@@ -31,13 +31,73 @@ scene.add(light);
 const playerHead = new THREE.Object3D();
 scene.add(playerHead);
 
-// NPC head (static or animated)
-const npcHead = new THREE.Mesh(
-    new THREE.SphereGeometry(0.2, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xff0000 })
-);
-npcHead.position.set(0, 1.5, -3); // Place NPC at a fixed position
-scene.add(npcHead);
+// Function to create a kid structure for the NPC
+function createKidStructure() {
+    const npcGroup = new THREE.Group();
+
+    // Head
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
+    head.position.set(0, 0.9, 0);
+    npcGroup.add(head);
+
+    // Body
+    const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.15, 0.8, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffff00 })
+    );
+    body.position.set(0, 0.4, 0);
+    npcGroup.add(body);
+
+    // Arms
+    const armLength = 0.5;
+    const armRadius = 0.05;
+
+    const leftArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(armRadius, armRadius, armLength, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffa500 })
+    );
+    leftArm.position.set(-0.3, 0.4, 0);
+    leftArm.rotation.z = Math.PI / 2;
+    npcGroup.add(leftArm);
+
+    const rightArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(armRadius, armRadius, armLength, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffa500 })
+    );
+    rightArm.position.set(0.3, 0.4, 0);
+    rightArm.rotation.z = Math.PI / 2;
+    npcGroup.add(rightArm);
+
+    // Legs
+    const legLength = 0.4;
+    const legRadius = 0.05;
+
+    const leftLeg = new THREE.Mesh(
+        new THREE.CylinderGeometry(legRadius, legRadius, legLength, 32),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+    );
+    leftLeg.position.set(-0.1, -0.2, 0);
+    leftLeg.rotation.z = Math.PI / 2;
+    npcGroup.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(
+        new THREE.CylinderGeometry(legRadius, legRadius, legLength, 32),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+    );
+    rightLeg.position.set(0.1, -0.2, 0);
+    rightLeg.rotation.z = Math.PI / 2;
+    npcGroup.add(rightLeg);
+
+    return npcGroup;
+}
+
+// Create the NPC kid structure
+const npcKid = createKidStructure();
+npcKid.position.set(0, 0, -3); // Place NPC at a fixed position
+scene.add(npcKid);
 
 // Function to calculate height difference
 function calculateHeightDifference(playerHeight, npcHeight) {
@@ -57,20 +117,6 @@ function calculateHeightDifference(playerHeight, npcHeight) {
     return heightDifference;
 }
 
-// Function to adjust NPC behavior based on sentiment
-function adjustNPCBehavior(heightDifference) {
-    if (heightDifference > 0.5) {
-        console.log("NPC feels intimidated.");
-        // Decrease NPC's health meter
-    } else if (heightDifference < -0.5) {
-        console.log("NPC feels dominant.");
-        // Increase NPC's confidence meter
-    } else {
-        console.log("NPC feels neutral.");
-        // Maintain NPC's current state
-    }
-}
-
 let prevPlayerY = null;
 
 // Animation loop
@@ -80,13 +126,12 @@ function animate() {
         playerHead.position.copy(camera.position);
 
         const playerHeight = playerHead.position.y;
-        const npcHeight = npcHead.position.y;
+        const npcHeight = npcKid.position.y + 0.9; // Adjust for the head position
 
         // Check if the player's y position has changed
         if (prevPlayerY === null || Math.abs(playerHeight - prevPlayerY) > 0.01) {
             // Calculate height difference and log sentiment
             const heightDifference = calculateHeightDifference(playerHeight, npcHeight);
-            adjustNPCBehavior(heightDifference);
 
             // Update previous player y position
             prevPlayerY = playerHeight;
