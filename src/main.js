@@ -107,17 +107,33 @@ function calculateHeightDifference(playerHeight, npcHeight) {
 
     // Determine sentiment based on height difference
     if (heightDifference > 0.5) {
-        console.log("Player is looking down at the NPC.");
+        return "Player is looking down at the NPC.";
     } else if (heightDifference < -0.5) {
-        console.log("Player is looking up at the NPC.");
+        return "Player is looking up at the NPC.";
     } else {
-        console.log("Player is at eye level with the NPC.");
+        return "Player is at eye level with the NPC.";
     }
-
-    return heightDifference;
 }
 
-let prevPlayerY = null;
+// Function to calculate proximity
+function calculateProximity(playerPosition, npcPosition) {
+    const distance = playerPosition.distanceTo(npcPosition);
+
+    // Determine sentiment based on proximity
+    let sentiment;
+    if (distance < 1.0) {
+        sentiment = "Player is very close to the NPC.";
+    } else if (distance < 3.0) {
+        sentiment = "Player is close to the NPC.";
+    } else {
+        sentiment = "Player is far from the NPC.";
+    }
+
+    return { sentiment, distance };
+}
+
+let prevPlayerPosition = null;
+let prevNpcPosition = null;
 
 // Animation loop
 function animate() {
@@ -125,16 +141,29 @@ function animate() {
         // Update playerHead position to match the camera (player's head)
         playerHead.position.copy(camera.position);
 
-        const playerHeight = playerHead.position.y;
-        const npcHeight = npcKid.position.y + 0.9; // Adjust for the head position
+        const playerPosition = playerHead.position;
+        const npcPosition = npcKid.position.clone().add(new THREE.Vector3(0, 0.9, 0)); // Adjust for the head position
 
-        // Check if the player's y position has changed
-        if (prevPlayerY === null || Math.abs(playerHeight - prevPlayerY) > 0.01) {
+        // Check if the player's position has changed significantly
+        if (
+            prevPlayerPosition === null ||
+            playerPosition.distanceTo(prevPlayerPosition) > 0.01 ||
+            npcPosition.distanceTo(prevNpcPosition) > 0.01
+        ) {
+            const playerHeight = playerPosition.y;
+            const npcHeight = npcPosition.y;
+
             // Calculate height difference and log sentiment
-            const heightDifference = calculateHeightDifference(playerHeight, npcHeight);
+            const heightSentiment = calculateHeightDifference(playerHeight, npcHeight);
+            console.log(heightSentiment);
 
-            // Update previous player y position
-            prevPlayerY = playerHeight;
+            // Calculate proximity and log sentiment with numeric value
+            const { sentiment, distance } = calculateProximity(playerPosition, npcPosition);
+            console.log('Proximity :', sentiment, `Distance: ${distance.toFixed(2)} units`);
+
+            // Update previous positions
+            prevPlayerPosition = playerPosition.clone();
+            prevNpcPosition = npcPosition.clone();
         }
 
         renderer.render(scene, camera);
