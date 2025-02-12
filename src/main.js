@@ -9,6 +9,9 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
+let backTurnedStartTime = null;
+let totalBackTurnedDuration = 0;
+let isBackTurned = false;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -129,6 +132,35 @@ function calculateProximity(playerPosition, npcPosition) {
   return { sentiment, distance };
 }
 
+function isLookingAtKid() {
+  // Get the camera's forward direction
+  const cameraForward = new THREE.Vector3(0, 0, -1);
+  cameraForward.applyQuaternion(camera.quaternion);
+
+  // Get the direction from the camera to the kid's head (adjust for height)
+  const kidHeadPosition = npcKid.position
+    .clone()
+    .add(new THREE.Vector3(0, 0.9, 0)); // Adjust for the kid's head
+  const kidDirection = new THREE.Vector3();
+  kidDirection.subVectors(kidHeadPosition, camera.position).normalize();
+
+  // Calculate the dot product to get the cosine of the angle
+  const dot = cameraForward.dot(kidDirection);
+
+  // Convert the dot product to an angle in degrees
+  const angle = Math.acos(dot) * (180 / Math.PI);
+
+  // Define a threshold angle (e.g., 15 degrees instead of 10)
+  const threshold = 15;
+
+  // Check if the angle is within the threshold and the kid is in front of the camera
+  if (angle <= threshold && dot > 0) {
+    // Ensure the kid is in front of the camera
+    return true;
+  }
+
+  return false;
+}
 
 // Function to check which object the camera is looking at
 function getObjectCameraIsLookingAt() {
@@ -155,11 +187,9 @@ function getObjectCameraIsLookingAt() {
   return closestObject;
 }
 
-
 let prevPlayerPosition = null;
 let prevNpcPosition = null;
 let prevTimestamp = null;
-
 
 // VR Controller Setup
 let leftController, rightController;
@@ -255,57 +285,8 @@ function animate() {
   renderer.setAnimationLoop((timestamp) => {
     // Update playerHead position to match the camera (player's head)
     playerHead.position.copy(camera.position);
-    const playerPosition = playerHead.position;
-    const npcPosition = npcKid.position
-      .clone()
-      .add(new THREE.Vector3(0, 0.9, 0)); // Adjust for the head position
 
-    // Check if the player's position has changed significantly
-    if (
-      prevPlayerPosition === null ||
-      playerPosition.distanceTo(prevPlayerPosition) > 0.01 ||
-      npcPosition.distanceTo(prevNpcPosition) > 0.01
-    ) {
-      const playerHeight = playerPosition.y;
-      const npcHeight = npcPosition.y;
-      // Calculate height difference and log sentiment
-      const heightSentiment = calculateHeightDifference(
-        playerHeight,
-        npcHeight
-      );
-      console.log(heightSentiment);
-      // Calculate proximity and log sentiment with numeric value
-      const { sentiment, distance } = calculateProximity(
-        playerPosition,
-        npcPosition
-      );
-      console.log(
-        "Proximity :",
-        sentiment,
-        `Distance: ${distance.toFixed(2)} units`
-      );
-      // Calculate speed of approach
-      if (prevPlayerPosition && prevTimestamp) {
-        const deltaTime = (timestamp - prevTimestamp) / 1000; // Convert milliseconds to seconds
-        const velocity = new THREE.Vector3()
-          .subVectors(playerPosition, prevPlayerPosition)
-          .divideScalar(deltaTime); // Velocity vector
-        const directionToNPC = new THREE.Vector3()
-          .subVectors(npcPosition, playerPosition)
-          .normalize(); // Direction from player to NPC
-        const speedOfApproach = velocity.dot(directionToNPC); // Project velocity onto directionToNPC
-        console.log(
-          `Speed of approach: ${speedOfApproach.toFixed(2)} units/second`
-        );
-      }
-      // Update previous positions and timestamp
-      prevPlayerPosition = playerPosition.clone();
-      prevNpcPosition = npcPosition.clone();
-      prevTimestamp = timestamp;
-    }
-
-
-    // Eye contact detection
+    // Eye contact detection using raycasting
     const lookedAtObject = getObjectCameraIsLookingAt();
     const isCurrentlyLookingAtNPC = lookedAtObject === npcKid;
 
@@ -320,14 +301,88 @@ function animate() {
       }
       isLookingAtNPC = isCurrentlyLookingAtNPC; // Update the previous state
     }
-    
 
-     // Update controllers
+    // Back-turn timer logic
+    if (isLookingAtNPC) {
+      console.log("Looking at the kid!");
+      if (isBackTurned) {
+        totalBackTurnedDuration =
+          (performance.now() - backTurnedStartTime) / 1000; // Convert to seconds
+        console.log(
+          `Back was turned for: ${totalBackTurnedDuration.toFixed(2)} seconds`
+        );
+        backTurnedStartTime = null;
+        totalBackTurnedDuration = 0;
+        isBackTurned = false;
+      }
+    } else {
+      console.log("Not looking at the kid");
+      if (!isBackTurned) {
+        backTurnedStartTime = performance.now();
+        isBackTurned = true;
+      }
+    }
+
+    // Player and NPC positions
+    const playerPosition = playerHead.position;
+    const npcPosition = npcKid.position
+      .clone()
+      .add(new THREE.Vector3(0, 0.9, 0)); // Adjust for the head position
+
+    // Check if the player's position has changed significantly
+    if (
+      prevPlayerPosition === null ||
+      playerPosition.distanceTo(prevPlayerPosition) > 0.01 ||
+      npcPosition.distanceTo(prevNpcPosition) > 0.01
+    ) {
+      const playerHeight = playerPosition.y;
+      const npcHeight = npcPosition.y;
+
+      // Calculate height difference and log sentiment
+      const heightSentiment = calculateHeightDifference(
+        playerHeight,
+        npcHeight
+      );
+      console.log(heightSentiment);
+
+      // Calculate proximity and log sentiment with numeric value
+      const { sentiment, distance } = calculateProximity(
+        playerPosition,
+        npcPosition
+      );
+      console.log(
+        "Proximity:",
+        sentiment,
+        `Distance: ${distance.toFixed(2)} units`
+      );
+
+      // Calculate speed of approach
+      if (prevPlayerPosition && prevTimestamp) {
+        const deltaTime = (timestamp - prevTimestamp) / 1000; // Convert milliseconds to seconds
+        const velocity = new THREE.Vector3()
+          .subVectors(playerPosition, prevPlayerPosition)
+          .divideScalar(deltaTime); // Velocity vector
+        const directionToNPC = new THREE.Vector3()
+          .subVectors(npcPosition, playerPosition)
+          .normalize(); // Direction from player to NPC
+        const speedOfApproach = velocity.dot(directionToNPC); // Project velocity onto directionToNPC
+        console.log(
+          `Speed of approach: ${speedOfApproach.toFixed(2)} units/second`
+        );
+      }
+
+      // Update previous positions and timestamp
+      prevPlayerPosition = playerPosition.clone();
+      prevNpcPosition = npcPosition.clone();
+      prevTimestamp = timestamp;
+    }
+
+    // Update controllers
     updateControllers(timestamp);
+
+    // Render the scene
     renderer.render(scene, camera);
   });
 }
-
-
 
 animate();
