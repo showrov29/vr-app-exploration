@@ -16,6 +16,53 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// Create text sprite
+function createTextSprite(text, options = {}) {
+    // Default options
+    const {
+        position = { x: 0, y: 0, z: 0 },
+        scale = { x: 2, y: 1, z: 1 },
+        fontSize = 40,
+        fontFamily = 'Arial',
+        fontWeight = 'bold',
+        color = 'white',
+        backgroundColor = 'transparent',
+        canvasWidth = 256,
+        canvasHeight = 128
+    } = options;
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    
+    // Clear background if specified
+    if (backgroundColor !== 'transparent') {
+        context.fillStyle = backgroundColor;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Set font style
+    context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = color;
+    
+    // Add text to canvas
+    context.fillText(text, canvas.width/2, canvas.height/2);
+    
+    // Create sprite
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    
+    // Set position and scale
+    sprite.position.set(position.x, position.y, position.z);
+    sprite.scale.set(scale.x, scale.y, scale.z);
+    
+    return sprite;
+}
+
 // Enable WebXR
 renderer.xr.enabled = true;
 
@@ -34,6 +81,10 @@ scene.add(ground);
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(10, 10, 10).normalize();
 scene.add(light);
+
+// Add ambient light for better text visibility
+const ambientLight = new THREE.AmbientLight(0x404040);
+scene.add(ambientLight);
 
 // Player head (tracked via WebXR)
 const playerHead = new THREE.Object3D();
@@ -107,14 +158,21 @@ function calculateHeightDifference(playerHeight, npcHeight) {
   console.log(
     `Player Y: ${playerHeight}, NPC Y: ${npcHeight}, Difference: ${heightDifference}`
   );
+
+  let sentiment;
   // Determine sentiment based on height difference
   if (heightDifference > 0.5) {
-    return "Player is looking down at the NPC.";
+    sentiment = "Player is looking down at the NPC.";
   } else if (heightDifference < -0.5) {
-    return "Player is looking up at the NPC.";
+    sentiment = "Player is looking up at the NPC.";
   } else {
-    return "Player is at eye level with the NPC.";
+    sentiment = "Player is at eye level with the NPC.";
   }
+
+  return {
+    difference: heightDifference,
+    sentiment: sentiment
+  };
 }
 
 // Function to calculate proximity
@@ -190,6 +248,9 @@ function getObjectCameraIsLookingAt() {
 let prevPlayerPosition = null;
 let prevNpcPosition = null;
 let prevTimestamp = null;
+let speedOfApproach = 0;
+let leftControllerSpeed = 0;
+let rightControllerSpeed = 0;
 
 // VR Controller Setup
 let leftController, rightController;
@@ -280,6 +341,50 @@ function updateControllers(time) {
 // Variable to track the previous state
 let isLookingAtNPC = false;
 
+// Create status text sprites
+const statusSprites = [];
+const statusLabels = [
+    'Height Difference:',
+    'Proximity:',
+    'Speed of Approach:',
+    'Gaze Direction:',
+    'Left Controller Speed:',
+    'Right Controller Speed:',
+    'Back Turned Duration:'
+];
+
+// Create and position sprites
+statusLabels.forEach((label, index) => {
+    const sprite = createTextSprite(label + ' ---', {
+        position: { x: -2, y: 2 - (index * 0.3), z: -3 }, // Vertical spacing
+        scale: { x: 4, y: 0.4, z: 1 },
+        fontSize: 24,
+        color: 'white',
+        canvasWidth: 512,
+        canvasHeight: 48,
+        backgroundColor: 'rgba(0,0,0,0.3)' // Semi-transparent background
+    });
+    statusSprites.push(sprite);
+    scene.add(sprite);
+});
+
+// Function to update status text
+function updateStatusText(index, value) {
+    if (statusSprites[index]) {
+        scene.remove(statusSprites[index]);
+        statusSprites[index] = createTextSprite(statusLabels[index] + ' ' + value, {
+            position: { x: -2, y: 2 - (index * 0.3), z: -3 },
+            scale: { x: 4, y: 0.4, z: 1 },
+            fontSize: 24,
+            color: 'white',
+            canvasWidth: 912,
+            canvasHeight: 78,
+            backgroundColor: 'rgba(0,0,0,0.3)'
+        });
+        scene.add(statusSprites[index]);
+    }
+}
+
 // Animation loop
 function animate() {
   renderer.setAnimationLoop((timestamp) => {
@@ -323,58 +428,47 @@ function animate() {
       }
     }
 
-    // Player and NPC positions
-    const playerPosition = playerHead.position;
-    const npcPosition = npcKid.position
-      .clone()
-      .add(new THREE.Vector3(0, 0.9, 0)); // Adjust for the head position
+    if (renderer.xr.isPresenting) {
+      const playerPosition = playerHead.position.clone();
+      const npcPosition = npcKid.position.clone();
 
-    // Check if the player's position has changed significantly
-    if (
-      prevPlayerPosition === null ||
-      playerPosition.distanceTo(prevPlayerPosition) > 0.01 ||
-      npcPosition.distanceTo(prevNpcPosition) > 0.01
-    ) {
-      const playerHeight = playerPosition.y;
-      const npcHeight = npcPosition.y;
+      // Calculate speeds and values only if we have previous positions
+      if (prevPlayerPosition && prevNpcPosition && prevTimestamp) {
+        const timeDelta = (timestamp - prevTimestamp) / 1000; // Convert to seconds
 
-      // Calculate height difference and log sentiment
-      const heightSentiment = calculateHeightDifference(
-        playerHeight,
-        npcHeight
-      );
-      console.log(heightSentiment);
+        // Calculate speed of approach
+        const prevDistance = prevPlayerPosition.distanceTo(prevNpcPosition);
+        const currentDistance = playerPosition.distanceTo(npcPosition);
+        speedOfApproach = (prevDistance - currentDistance) / timeDelta;
 
-      // Calculate proximity and log sentiment with numeric value
-      const { sentiment, distance } = calculateProximity(
-        playerPosition,
-        npcPosition
-      );
-      console.log(
-        "Proximity:",
-        sentiment,
-        `Distance: ${distance.toFixed(2)} units`
-      );
-
-      // Calculate speed of approach
-      if (prevPlayerPosition && prevTimestamp) {
-        const deltaTime = (timestamp - prevTimestamp) / 1000; // Convert milliseconds to seconds
-        const velocity = new THREE.Vector3()
-          .subVectors(playerPosition, prevPlayerPosition)
-          .divideScalar(deltaTime); // Velocity vector
-        const directionToNPC = new THREE.Vector3()
-          .subVectors(npcPosition, playerPosition)
-          .normalize(); // Direction from player to NPC
-        const speedOfApproach = velocity.dot(directionToNPC); // Project velocity onto directionToNPC
-        console.log(
-          `Speed of approach: ${speedOfApproach.toFixed(2)} units/second`
-        );
+        // Update controller speeds here if needed
+        if (leftController && leftController.position) {
+          const leftDelta = leftController.position.distanceTo(leftPreviousPosition);
+          leftControllerSpeed = leftDelta / timeDelta;
+        }
+        if (rightController && rightController.position) {
+          const rightDelta = rightController.position.distanceTo(rightPreviousPosition);
+          rightControllerSpeed = rightDelta / timeDelta;
+        }
       }
 
-      // Update previous positions and timestamp
-      prevPlayerPosition = playerPosition.clone();
-      prevNpcPosition = npcPosition.clone();
+      // Store current positions for next frame
+      prevPlayerPosition = playerPosition;
+      prevNpcPosition = npcPosition;
       prevTimestamp = timestamp;
+
+      // Update status values
+      const heightDiffResult = calculateHeightDifference(playerHead.position.y, npcKid.position.y);
+      const proximity = calculateProximity(playerHead.position, npcKid.position);
+      const gazeDirection = isLookingAtKid() ? "Looking at NPC" : "Looking away";
+      
+      updateStatusText(0, heightDiffResult.difference.toFixed(2) + ' units (' + heightDiffResult.sentiment + ')');
+      updateStatusText(1, proximity.distance.toFixed(2) + ' units');
+      updateStatusText(2, speedOfApproach.toFixed(2) + ' units/s');
+      updateStatusText(3, gazeDirection);
+      updateStatusText(4, leftControllerSpeed.toFixed(2) + ' units/s');
+      updateStatusText(5, rightControllerSpeed.toFixed(2) + ' units/s');
+      updateStatusText(6, totalBackTurnedDuration.toFixed(1) + ' seconds');
     }
 
     // Update controllers
