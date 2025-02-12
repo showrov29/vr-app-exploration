@@ -95,6 +95,9 @@ const npcKid = createKidStructure();
 npcKid.position.set(0, 0, -3); // Place NPC at a fixed position
 scene.add(npcKid);
 
+// Objects to check for gaze detection
+const objects = [npcKid];
+
 // Function to calculate height difference
 function calculateHeightDifference(playerHeight, npcHeight) {
   const heightDifference = playerHeight - npcHeight;
@@ -126,9 +129,126 @@ function calculateProximity(playerPosition, npcPosition) {
   return { sentiment, distance };
 }
 
+
+// Function to check which object the camera is looking at
+function getObjectCameraIsLookingAt() {
+  const cameraForward = new THREE.Vector3(0, 0, -1);
+  cameraForward.applyQuaternion(camera.quaternion);
+
+  let closestObject = null;
+  let smallestAngle = Infinity;
+  const threshold = 10; // Angle threshold in degrees
+
+  for (const object of objects) {
+    const objectDirection = new THREE.Vector3();
+    objectDirection.subVectors(object.position, camera.position).normalize();
+
+    const dot = cameraForward.dot(objectDirection);
+    const angle = Math.acos(dot) * (180 / Math.PI);
+
+    if (angle < threshold && angle < smallestAngle) {
+      smallestAngle = angle;
+      closestObject = object;
+    }
+  }
+
+  return closestObject;
+}
+
+
 let prevPlayerPosition = null;
 let prevNpcPosition = null;
 let prevTimestamp = null;
+
+
+// VR Controller Setup
+let leftController, rightController;
+let leftPreviousPosition = null,
+  rightPreviousPosition = null;
+let controllerPrevTimestamp = null;
+
+// Add XR controllers
+leftController = renderer.xr.getController(0); // Left controller
+rightController = renderer.xr.getController(1); // Right controller
+
+// Add visual representation for controllers
+const controllerModel = new THREE.Mesh(
+  new THREE.SphereGeometry(0.05, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+);
+leftController.add(controllerModel.clone());
+rightController.add(controllerModel.clone());
+scene.add(leftController);
+scene.add(rightController);
+
+// Event listeners for controller interaction
+leftController.addEventListener("selectstart", () =>
+  console.log("Left controller select start")
+);
+leftController.addEventListener("selectend", () =>
+  console.log("Left controller select end")
+);
+rightController.addEventListener("selectstart", () =>
+  console.log("Right controller select start")
+);
+rightController.addEventListener("selectend", () =>
+  console.log("Right controller select end")
+);
+
+// Render loop for VR controllers
+function updateControllers(time) {
+  const session = renderer.xr.getSession();
+  if (session) {
+    // Calculate speed for left controller
+    if (leftController && leftController.position) {
+      const leftPosition = leftController.position;
+
+      if (leftPreviousPosition) {
+        const deltaX = leftPosition.x - leftPreviousPosition.x;
+        const deltaY = leftPosition.y - leftPreviousPosition.y;
+        const deltaZ = leftPosition.z - leftPreviousPosition.z;
+        const distanceMoved = Math.sqrt(
+          deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
+        );
+
+        if (distanceMoved > 0) {
+          const deltaTime = (time - controllerPrevTimestamp) / 1000; // Convert to seconds
+          const speed = distanceMoved / deltaTime;
+          console.log(`Left controller speed: ${speed.toFixed(2)} m/s`);
+        }
+      }
+
+      leftPreviousPosition = leftPosition.clone();
+    }
+
+    // Calculate speed for right controller
+    if (rightController && rightController.position) {
+      const rightPosition = rightController.position;
+
+      if (rightPreviousPosition) {
+        const deltaX = rightPosition.x - rightPreviousPosition.x;
+        const deltaY = rightPosition.y - rightPreviousPosition.y;
+        const deltaZ = rightPosition.z - rightPreviousPosition.z;
+        const distanceMoved = Math.sqrt(
+          deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
+        );
+
+        if (distanceMoved > 0) {
+          const deltaTime = (time - controllerPrevTimestamp) / 1000; // Convert to seconds
+          const speed = distanceMoved / deltaTime;
+          console.log(`Right controller speed: ${speed.toFixed(2)} m/s`);
+        }
+      }
+
+      rightPreviousPosition = rightPosition.clone();
+    }
+
+    controllerPrevTimestamp = time;
+  }
+}
+
+// Variable to track the previous state
+let isLookingAtNPC = false;
 
 // Animation loop
 function animate() {
@@ -184,97 +304,30 @@ function animate() {
       prevTimestamp = timestamp;
     }
 
-    // Call the render function to calculate controller speeds
-    render(timestamp);
 
+    // Eye contact detection
+    const lookedAtObject = getObjectCameraIsLookingAt();
+    const isCurrentlyLookingAtNPC = lookedAtObject === npcKid;
+
+    // Check if the state has changed
+    if (isCurrentlyLookingAtNPC !== isLookingAtNPC) {
+      if (isCurrentlyLookingAtNPC) {
+        console.log("Looking at the NPC.");
+        npcKid.children[0].material.color.set(0x00ff00); // Highlight NPC's head
+      } else {
+        console.log("Not looking at the NPC.");
+        npcKid.children[0].material.color.set(0xff0000); // Reset NPC's head color
+      }
+      isLookingAtNPC = isCurrentlyLookingAtNPC; // Update the previous state
+    }
+    
+
+     // Update controllers
+    updateControllers(timestamp);
     renderer.render(scene, camera);
   });
 }
 
-// VR Controller Setup
-let leftController, rightController;
-let leftPreviousPosition = null,
-  rightPreviousPosition = null;
 
-// Add XR controllers
-leftController = renderer.xr.getController(0); // Left controller
-rightController = renderer.xr.getController(1); // Right controller
-
-// Add visual representation for controllers
-const controllerModel = new THREE.Mesh(
-  new THREE.SphereGeometry(0.05, 32, 32),
-  new THREE.MeshBasicMaterial({ color: 0xff0000 })
-);
-leftController.add(controllerModel.clone());
-rightController.add(controllerModel.clone());
-scene.add(leftController);
-scene.add(rightController);
-
-// Event listeners for controller interaction
-leftController.addEventListener("selectstart", () =>
-  console.log("Left controller select start")
-);
-leftController.addEventListener("selectend", () =>
-  console.log("Left controller select end")
-);
-rightController.addEventListener("selectstart", () =>
-  console.log("Right controller select start")
-);
-rightController.addEventListener("selectend", () =>
-  console.log("Right controller select end")
-);
-
-// Render loop for VR controllers
-function render(time) {
-  const session = renderer.xr.getSession();
-  if (session) {
-    // Calculate speed for left controller
-    if (leftController && leftController.position) {
-      const leftPosition = leftController.position;
-      // Check if the controller has moved
-      if (leftPreviousPosition) {
-        const deltaX = leftPosition.x - leftPreviousPosition.x;
-        const deltaY = leftPosition.y - leftPreviousPosition.y;
-        const deltaZ = leftPosition.z - leftPreviousPosition.z;
-        const distanceMoved = Math.sqrt(
-          deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
-        );
-        if (distanceMoved > 0) {
-          // Only log if the controller has moved
-          const deltaTime = (time - prevTimestamp) / 1000; // Convert to seconds
-          const speed = distanceMoved / deltaTime;
-          console.log(`Left controller speed: ${speed.toFixed(2)} m/s`);
-        }
-      }
-      // Update previous position
-      leftPreviousPosition = leftPosition.clone();
-    }
-
-    // Calculate speed for right controller
-    if (rightController && rightController.position) {
-      const rightPosition = rightController.position;
-      // Check if the controller has moved
-      if (rightPreviousPosition) {
-        const deltaX = rightPosition.x - rightPreviousPosition.x;
-        const deltaY = rightPosition.y - rightPreviousPosition.y;
-        const deltaZ = rightPosition.z - rightPreviousPosition.z;
-        const distanceMoved = Math.sqrt(
-          deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
-        );
-        if (distanceMoved > 0) {
-          // Only log if the controller has moved
-          const deltaTime = (time - prevTimestamp) / 1000; // Convert to seconds
-          const speed = distanceMoved / deltaTime;
-          console.log(`Right controller speed: ${speed.toFixed(2)} m/s`);
-        }
-      }
-      // Update previous position
-      rightPreviousPosition = rightPosition.clone();
-    }
-
-    // Update timestamp
-    prevTimestamp = time;
-  }
-}
 
 animate();
