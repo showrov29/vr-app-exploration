@@ -347,9 +347,9 @@ const statusLabels = [
     'Height Difference:',
     'Proximity:',
     'Speed of Approach:',
-    'Gaze Direction:',
-    'Left Controller Speed:',
+    'Eye Contact:',
     'Right Controller Speed:',
+    'Left Controller Speed:',
     'Back Turned Duration:'
 ];
 
@@ -417,7 +417,6 @@ function animate() {
           `Back was turned for: ${totalBackTurnedDuration.toFixed(2)} seconds`
         );
         backTurnedStartTime = null;
-        totalBackTurnedDuration = 0;
         isBackTurned = false;
       }
     } else {
@@ -460,7 +459,7 @@ function animate() {
       // Update status values
       const heightDiffResult = calculateHeightDifference(playerHead.position.y, npcKid.position.y);
       const proximity = calculateProximity(playerHead.position, npcKid.position);
-      const gazeDirection = isLookingAtKid() ? "Looking at NPC" : "Looking away";
+      const gazeDirection = isLookingAtNPC ? "Looking at NPC" : "Not Looking at NPC";
       
       updateStatusText(0, heightDiffResult.difference.toFixed(2) + ' units (' + heightDiffResult.sentiment + ')');
       updateStatusText(1, proximity.distance.toFixed(2) + ' units');
@@ -468,7 +467,7 @@ function animate() {
       updateStatusText(3, gazeDirection);
       updateStatusText(4, leftControllerSpeed.toFixed(2) + ' units/s');
       updateStatusText(5, rightControllerSpeed.toFixed(2) + ' units/s');
-      updateStatusText(6, totalBackTurnedDuration.toFixed(1) + ' seconds');
+      updateStatusText(6, totalBackTurnedDuration.toFixed(2) + ' seconds');
     }
 
     // Update controllers
