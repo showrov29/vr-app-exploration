@@ -18,49 +18,49 @@ document.body.appendChild(renderer.domElement);
 
 // Create text sprite
 function createTextSprite(text, options = {}) {
-    // Default options
-    const {
-        position = { x: 0, y: 0, z: 0 },
-        scale = { x: 2, y: 1, z: 1 },
-        fontSize = 40,
-        fontFamily = 'Arial',
-        fontWeight = 'bold',
-        color = 'white',
-        backgroundColor = 'transparent',
-        canvasWidth = 256,
-        canvasHeight = 128
-    } = options;
+  // Default options
+  const {
+    position = { x: 0, y: 0, z: 0 },
+    scale = { x: 2, y: 1, z: 1 },
+    fontSize = 40,
+    fontFamily = "Arial",
+    fontWeight = "bold",
+    color = "white",
+    backgroundColor = "transparent",
+    canvasWidth = 256,
+    canvasHeight = 128,
+  } = options;
 
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    
-    // Clear background if specified
-    if (backgroundColor !== 'transparent') {
-        context.fillStyle = backgroundColor;
-        context.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    
-    // Set font style
-    context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillStyle = color;
-    
-    // Add text to canvas
-    context.fillText(text, canvas.width/2, canvas.height/2);
-    
-    // Create sprite
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(spriteMaterial);
-    
-    // Set position and scale
-    sprite.position.set(position.x, position.y, position.z);
-    sprite.scale.set(scale.x, scale.y, scale.z);
-    
-    return sprite;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  // Clear background if specified
+  if (backgroundColor !== "transparent") {
+    context.fillStyle = backgroundColor;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Set font style
+  context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = color;
+
+  // Add text to canvas
+  context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  // Create sprite
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+  const sprite = new THREE.Sprite(spriteMaterial);
+
+  // Set position and scale
+  sprite.position.set(position.x, position.y, position.z);
+  sprite.scale.set(scale.x, scale.y, scale.z);
+
+  return sprite;
 }
 
 // Enable WebXR
@@ -171,7 +171,7 @@ function calculateHeightDifference(playerHeight, npcHeight) {
 
   return {
     difference: heightDifference,
-    sentiment: sentiment
+    sentiment: sentiment,
   };
 }
 
@@ -347,45 +347,45 @@ let isLookingAtNPC = false;
 // Create status text sprites
 const statusSprites = [];
 const statusLabels = [
-    'Height Difference:',
-    'Proximity:',
-    'Speed of Approach:',
-    'Eye Contact:',
-    'Right Controller Speed:',
-    'Left Controller Speed:',
-    'Back Turned Duration:'
+  "Height Difference:",
+  "Proximity:",
+  "Speed of Approach:",
+  "Eye Contact:",
+  "Right Controller Speed:",
+  "Left Controller Speed:",
+  "Back Turned Duration:",
 ];
 
 // Create and position sprites
 statusLabels.forEach((label, index) => {
-    const sprite = createTextSprite(label + ' ---', {
-        position: { x: -2, y: 2 - (index * 0.3), z: -3 }, // Vertical spacing
-        scale: { x: 4, y: 0.4, z: 1 },
-        fontSize: 24,
-        color: 'white',
-        canvasWidth: 512,
-        canvasHeight: 48,
-        backgroundColor: 'rgba(0,0,0,0.3)' // Semi-transparent background
-    });
-    statusSprites.push(sprite);
-    scene.add(sprite);
+  const sprite = createTextSprite(label + " ---", {
+    position: { x: -2, y: 2 - index * 0.3, z: -3 }, // Vertical spacing
+    scale: { x: 4, y: 0.4, z: 1 },
+    fontSize: 24,
+    color: "white",
+    canvasWidth: 512,
+    canvasHeight: 48,
+    backgroundColor: "rgba(0,0,0,0.3)", // Semi-transparent background
+  });
+  statusSprites.push(sprite);
+  scene.add(sprite);
 });
 
 // Function to update status text
 function updateStatusText(index, value) {
-    if (statusSprites[index]) {
-        scene.remove(statusSprites[index]);
-        statusSprites[index] = createTextSprite(statusLabels[index] + ' ' + value, {
-            position: { x: -2, y: 2 - (index * 0.3), z: -3 },
-            scale: { x: 4, y: 0.4, z: 1 },
-            fontSize: 24,
-            color: 'white',
-            canvasWidth: 912,
-            canvasHeight: 78,
-            backgroundColor: 'rgba(0,0,0,0.3)'
-        });
-        scene.add(statusSprites[index]);
-    }
+  if (statusSprites[index]) {
+    scene.remove(statusSprites[index]);
+    statusSprites[index] = createTextSprite(statusLabels[index] + " " + value, {
+      position: { x: -2, y: 2 - index * 0.3, z: -3 },
+      scale: { x: 4, y: 0.4, z: 1 },
+      fontSize: 24,
+      color: "white",
+      canvasWidth: 912,
+      canvasHeight: 78,
+      backgroundColor: "rgba(0,0,0,0.3)",
+    });
+    scene.add(statusSprites[index]);
+  }
 }
 
 // Animation loop
@@ -412,7 +412,7 @@ function animate() {
 
     // Back-turn timer logic
     if (isLookingAtNPC) {
-      console.log("Looking at the kid!");
+      console.log("Looking at the kid.");
       if (isBackTurned) {
         totalBackTurnedDuration =
           (performance.now() - backTurnedStartTime) / 1000; // Convert to seconds
@@ -445,11 +445,14 @@ function animate() {
 
         // Update controller speeds here if needed
         if (leftController && leftController.position) {
-          const leftDelta = leftController.position.distanceTo(leftPreviousPosition);
+          const leftDelta =
+            leftController.position.distanceTo(leftPreviousPosition);
           leftControllerSpeed = leftDelta / timeDelta;
         }
         if (rightController && rightController.position) {
-          const rightDelta = rightController.position.distanceTo(rightPreviousPosition);
+          const rightDelta = rightController.position.distanceTo(
+            rightPreviousPosition
+          );
           rightControllerSpeed = rightDelta / timeDelta;
         }
       }
@@ -460,10 +463,18 @@ function animate() {
       prevTimestamp = timestamp;
 
       // Update status values
-      const heightDiffResult = calculateHeightDifference(playerHead.position.y, npcKid.position.y);
-      const proximity = calculateProximity(playerHead.position, npcKid.position);
-      const gazeDirection = isLookingAtNPC ? "Looking at NPC" : "Not Looking at NPC";
-      
+      const heightDiffResult = calculateHeightDifference(
+        playerHead.position.y,
+        npcKid.position.y
+      );
+      const proximity = calculateProximity(
+        playerHead.position,
+        npcKid.position
+      );
+      const gazeDirection = isLookingAtNPC
+        ? "Looking at NPC"
+        : "Not Looking at NPC";
+
       // Update last speed values only when there's movement
       if (speedOfApproach !== 0) {
         lastSpeedOfApproach = speedOfApproach;
@@ -475,13 +486,19 @@ function animate() {
         lastRightControllerSpeed = rightControllerSpeed;
       }
 
-      updateStatusText(0, heightDiffResult.difference.toFixed(2) + ' units (' + heightDiffResult.sentiment + ')');
-      updateStatusText(1, proximity.distance.toFixed(2) + ' units');
-      updateStatusText(2, lastSpeedOfApproach.toFixed(2) + ' units/s');
+      updateStatusText(
+        0,
+        heightDiffResult.difference.toFixed(2) +
+          " units (" +
+          heightDiffResult.sentiment +
+          ")"
+      );
+      updateStatusText(1, proximity.distance.toFixed(2) + " units");
+      updateStatusText(2, lastSpeedOfApproach.toFixed(2) + " units/s");
       updateStatusText(3, gazeDirection);
-      updateStatusText(4, lastLeftControllerSpeed.toFixed(2) + ' units/s');
-      updateStatusText(5, lastRightControllerSpeed.toFixed(2) + ' units/s');
-      updateStatusText(6, totalBackTurnedDuration.toFixed(2) + ' seconds');
+      updateStatusText(4, lastLeftControllerSpeed.toFixed(2) + " units/s");
+      updateStatusText(5, lastRightControllerSpeed.toFixed(2) + " units/s");
+      updateStatusText(6, totalBackTurnedDuration.toFixed(2) + " seconds");
     }
 
     // Update controllers
