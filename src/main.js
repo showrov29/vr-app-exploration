@@ -251,6 +251,9 @@ let prevTimestamp = null;
 let speedOfApproach = 0;
 let leftControllerSpeed = 0;
 let rightControllerSpeed = 0;
+let lastSpeedOfApproach = 0;
+let lastLeftControllerSpeed = 0;
+let lastRightControllerSpeed = 0;
 
 // VR Controller Setup
 let leftController, rightController;
@@ -461,12 +464,23 @@ function animate() {
       const proximity = calculateProximity(playerHead.position, npcKid.position);
       const gazeDirection = isLookingAtNPC ? "Looking at NPC" : "Not Looking at NPC";
       
+      // Update last speed values only when there's movement
+      if (speedOfApproach !== 0) {
+        lastSpeedOfApproach = speedOfApproach;
+      }
+      if (leftControllerSpeed !== 0) {
+        lastLeftControllerSpeed = leftControllerSpeed;
+      }
+      if (rightControllerSpeed !== 0) {
+        lastRightControllerSpeed = rightControllerSpeed;
+      }
+
       updateStatusText(0, heightDiffResult.difference.toFixed(2) + ' units (' + heightDiffResult.sentiment + ')');
       updateStatusText(1, proximity.distance.toFixed(2) + ' units');
-      updateStatusText(2, speedOfApproach.toFixed(2) + ' units/s');
+      updateStatusText(2, lastSpeedOfApproach.toFixed(2) + ' units/s');
       updateStatusText(3, gazeDirection);
-      updateStatusText(4, leftControllerSpeed.toFixed(2) + ' units/s');
-      updateStatusText(5, rightControllerSpeed.toFixed(2) + ' units/s');
+      updateStatusText(4, lastLeftControllerSpeed.toFixed(2) + ' units/s');
+      updateStatusText(5, lastRightControllerSpeed.toFixed(2) + ' units/s');
       updateStatusText(6, totalBackTurnedDuration.toFixed(2) + ' seconds');
     }
 
