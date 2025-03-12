@@ -1,0 +1,145 @@
+<html>
+  <head>
+    <title>Emotional UI with Mouse-Driven Emotions</title>
+    <style>
+      #emotionDisplay {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        font-family: Arial, sans-serif;
+      }
+      #emotionDisplay div {
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="emotionDisplay" style="font-size: xx-large">
+      <div>Neutral: <span id="neutralValue">1.00</span></div>
+      <div>Joy: <span id="joyValue">0.00</span></div>
+      <div>Mad: <span id="madValue">0.00</span></div>
+      <div>Sad: <span id="sadValue">0.00</span></div>
+    </div>
+
+    <script type="text/javascript">
+      // Configuration constants
+      const THRESHOLD_JOY = 0.01; // Speed to trigger Joy
+      const THRESHOLD_MAD = 8; // Speed to trigger Mad
+      const THRESHOLD_SAD = 32; // Speed to trigger Sad
+      const THRESHOLD_NEUTRAL = 0.01; // Speed below which returns to Neutral
+      const MIN_TIME_JOY = 0.5; // Minimum time (seconds) in Joy before Mad
+      const MIN_TIME_MAD = 0.5; // Minimum time in Mad before Sad
+      const TRANSITION_SPEED = 2.0; // Speed of emotional value interpolation
+
+      // State variables
+      let currentEmotion = "Neutral";
+      let emotionTimer = 0; // Time spent in current emotion
+      let joyFromEmoter = 0; // Current Joy value (0 to 1)
+      let madFromEmoter = 0; // Current Mad value
+      let sadFromEmoter = 0; // Current Sad value
+      let mouseX = 0,
+        mouseY = 0; // Current mouse position
+      let lastMouseX = 0,
+        lastMouseY = 0; // Previous mouse position
+      let mouseSpeedCumulative = 0; // Cumulative mouse speed
+
+      // Handle mouse movement
+      function onMouseMove(event) {
+        mouseX = event.clientX;
+        mouseY = event.clientY;
+      }
+
+      // Update emotions and UI
+      function update() {
+        // Calculate mouse speed
+        const dx = mouseX - lastMouseX;
+        const dy = mouseY - lastMouseY;
+        const mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+        mouseSpeedCumulative = mouseSpeed * 0.1; // Scale speed
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+
+        const deltaTime = 0.1; // Time step (100ms interval)
+
+        // State machine for emotion transitions
+        if (currentEmotion === "Neutral") {
+          if (mouseSpeedCumulative >= THRESHOLD_JOY) {
+            currentEmotion = "Joy";
+            emotionTimer = 0;
+          }
+        } else if (currentEmotion === "Joy") {
+          emotionTimer += deltaTime;
+          if (
+            mouseSpeedCumulative >= THRESHOLD_MAD &&
+            emotionTimer >= MIN_TIME_JOY
+          ) {
+            currentEmotion = "Mad";
+            emotionTimer = 0;
+          } else if (mouseSpeedCumulative < THRESHOLD_NEUTRAL) {
+            currentEmotion = "Neutral";
+          }
+        } else if (currentEmotion === "Mad") {
+          emotionTimer += deltaTime;
+          if (
+            mouseSpeedCumulative >= THRESHOLD_SAD &&
+            emotionTimer >= MIN_TIME_MAD
+          ) {
+            currentEmotion = "Sad";
+            emotionTimer = 0;
+          } else if (mouseSpeedCumulative < THRESHOLD_NEUTRAL) {
+            currentEmotion = "Neutral";
+          }
+        } else if (currentEmotion === "Sad") {
+          if (mouseSpeedCumulative < THRESHOLD_NEUTRAL) {
+            currentEmotion = "Neutral";
+          }
+        }
+
+        // Set target values for emotions
+        let targetJoy = currentEmotion === "Joy" ? 1 : 0;
+        let targetMad = currentEmotion === "Mad" ? 1 : 0;
+        let targetSad = currentEmotion === "Sad" ? 1 : 0;
+
+        // Smoothly interpolate emotion values
+        joyFromEmoter +=
+          ((targetJoy - joyFromEmoter) * TRANSITION_SPEED * deltaTime) / 3;
+        madFromEmoter +=
+          ((targetMad - madFromEmoter) * TRANSITION_SPEED * deltaTime) / 3;
+        sadFromEmoter +=
+          ((targetSad - sadFromEmoter) * TRANSITION_SPEED * deltaTime) / 3;
+
+        // Calculate Neutral as remainder, ensuring non-negative
+        const total = joyFromEmoter + madFromEmoter + sadFromEmoter;
+        const neutral = Math.max(0, 1 - total);
+
+        // Update the UI
+        document.getElementById("neutralValue").textContent =
+          neutral.toFixed(2);
+        document.getElementById("joyValue").textContent =
+          joyFromEmoter.toFixed(2);
+        document.getElementById("madValue").textContent =
+          madFromEmoter.toFixed(2);
+        document.getElementById("sadValue").textContent =
+          sadFromEmoter.toFixed(2);
+
+        // Update background color based on emotions
+        const joyColor = Math.floor(joyFromEmoter * 255);
+        const madColor = Math.floor(madFromEmoter * 255);
+        const sadColor = Math.floor(sadFromEmoter * 255);
+        document.body.style.backgroundColor = `rgb(${joyColor}, ${madColor}, ${sadColor})`;
+      }
+
+      // Initialize the system
+      function init() {
+        document.addEventListener("mousemove", onMouseMove, false);
+        setInterval(update, 100); // Run update every 100ms
+      }
+
+      // Start when the page loads
+      window.onload = init;
+    </script>
+  </body>
+</html>
