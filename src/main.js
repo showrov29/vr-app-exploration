@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { update } from "three/examples/jsm/libs/tween.module.js";
 import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
 
 // Initialize Three.js scene, camera, and renderer
@@ -15,52 +16,57 @@ let isBackTurned = false;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+let emotionTimer = 0; // Time spent in current emotion
+let joyFromEmoter = 0; // Current Joy value (0 to 1)
+let madFromEmoter = 0; // Current Mad value
+let sadFromEmoter = 0; // Current Sad value
 
+let lastMouseSpeedCumulative = 0;
 // Create text sprite
 function createTextSprite(text, options = {}) {
-    // Default options
-    const {
-        position = { x: 0, y: 0, z: 0 },
-        scale = { x: 2, y: 1, z: 1 },
-        fontSize = 40,
-        fontFamily = 'Arial',
-        fontWeight = 'bold',
-        color = 'white',
-        backgroundColor = 'transparent',
-        canvasWidth = 256,
-        canvasHeight = 128
-    } = options;
+  // Default options
+  const {
+    position = { x: 0, y: 0, z: 0 },
+    scale = { x: 2, y: 1, z: 1 },
+    fontSize = 40,
+    fontFamily = "Arial",
+    fontWeight = "bold",
+    color = "white",
+    backgroundColor = "transparent",
+    canvasWidth = 256,
+    canvasHeight = 128,
+  } = options;
 
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    
-    // Clear background if specified
-    if (backgroundColor !== 'transparent') {
-        context.fillStyle = backgroundColor;
-        context.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    
-    // Set font style
-    context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillStyle = color;
-    
-    // Add text to canvas
-    context.fillText(text, canvas.width/2, canvas.height/2);
-    
-    // Create sprite
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(spriteMaterial);
-    
-    // Set position and scale
-    sprite.position.set(position.x, position.y, position.z);
-    sprite.scale.set(scale.x, scale.y, scale.z);
-    
-    return sprite;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  // Clear background if specified
+  if (backgroundColor !== "transparent") {
+    context.fillStyle = backgroundColor;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Set font style
+  context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = color;
+
+  // Add text to canvas
+  context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  // Create sprite
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+  const sprite = new THREE.Sprite(spriteMaterial);
+
+  // Set position and scale
+  sprite.position.set(position.x, position.y, position.z);
+  sprite.scale.set(scale.x, scale.y, scale.z);
+
+  return sprite;
 }
 
 // Enable WebXR
@@ -155,9 +161,9 @@ const objects = [npcKid];
 // Function to calculate height difference
 function calculateHeightDifference(playerHeight, npcHeight) {
   const heightDifference = playerHeight - npcHeight;
-  console.log(
-    `Player Y: ${playerHeight}, NPC Y: ${npcHeight}, Difference: ${heightDifference}`
-  );
+  // console.log(
+  //   `Player Y: ${playerHeight}, NPC Y: ${npcHeight}, Difference: ${heightDifference}`
+  // );
 
   let sentiment;
   // Determine sentiment based on height difference
@@ -171,7 +177,7 @@ function calculateHeightDifference(playerHeight, npcHeight) {
 
   return {
     difference: heightDifference,
-    sentiment: sentiment
+    sentiment: sentiment,
   };
 }
 
@@ -308,7 +314,7 @@ function updateControllers(time) {
         if (distanceMoved > 0) {
           const deltaTime = (time - controllerPrevTimestamp) / 1000; // Convert to seconds
           const speed = distanceMoved / deltaTime;
-          console.log(`Left controller speed: ${speed.toFixed(2)} m/s`);
+          // console.log(`Left controller speed: ${speed.toFixed(2)} m/s`);
         }
       }
 
@@ -330,7 +336,7 @@ function updateControllers(time) {
         if (distanceMoved > 0) {
           const deltaTime = (time - controllerPrevTimestamp) / 1000; // Convert to seconds
           const speed = distanceMoved / deltaTime;
-          console.log(`Right controller speed: ${speed.toFixed(2)} m/s`);
+          // console.log(`Right controller speed: ${speed.toFixed(2)} m/s`);
         }
       }
 
@@ -347,50 +353,51 @@ let isLookingAtNPC = false;
 // Create status text sprites
 const statusSprites = [];
 const statusLabels = [
-    'Height Difference:',
-    'Proximity:',
-    'Speed of Approach:',
-    'Eye Contact:',
-    'Right Controller Speed:',
-    'Left Controller Speed:',
-    'Back Turned Duration:'
+  "Height Difference:",
+  "Proximity:",
+  "Speed of Approach:",
+  "Eye Contact:",
+  "Right Controller Speed:",
+  "Left Controller Speed:",
+  "Back Turned Duration:",
 ];
 
 // Create and position sprites
 statusLabels.forEach((label, index) => {
-    const sprite = createTextSprite(label + ' ---', {
-        position: { x: -2, y: 2 - (index * 0.3), z: -3 }, // Vertical spacing
-        scale: { x: 4, y: 0.4, z: 1 },
-        fontSize: 24,
-        color: 'white',
-        canvasWidth: 512,
-        canvasHeight: 48,
-        backgroundColor: 'rgba(0,0,0,0.3)' // Semi-transparent background
-    });
-    statusSprites.push(sprite);
-    scene.add(sprite);
+  const sprite = createTextSprite(label + " ---", {
+    position: { x: -2, y: 2 - index * 0.3, z: -3 }, // Vertical spacing
+    scale: { x: 4, y: 0.4, z: 1 },
+    fontSize: 24,
+    color: "white",
+    canvasWidth: 512,
+    canvasHeight: 48,
+    backgroundColor: "rgba(0,0,0,0.3)", // Semi-transparent background
+  });
+  statusSprites.push(sprite);
+  scene.add(sprite);
 });
 
 // Function to update status text
 function updateStatusText(index, value) {
-    if (statusSprites[index]) {
-        scene.remove(statusSprites[index]);
-        statusSprites[index] = createTextSprite(statusLabels[index] + ' ' + value, {
-            position: { x: -2, y: 2 - (index * 0.3), z: -3 },
-            scale: { x: 4, y: 0.4, z: 1 },
-            fontSize: 24,
-            color: 'white',
-            canvasWidth: 912,
-            canvasHeight: 78,
-            backgroundColor: 'rgba(0,0,0,0.3)'
-        });
-        scene.add(statusSprites[index]);
-    }
+  if (statusSprites[index]) {
+    scene.remove(statusSprites[index]);
+    statusSprites[index] = createTextSprite(statusLabels[index] + " " + value, {
+      position: { x: -2, y: 2 - index * 0.3, z: -3 },
+      scale: { x: 4, y: 0.4, z: 1 },
+      fontSize: 24,
+      color: "white",
+      canvasWidth: 912,
+      canvasHeight: 78,
+      backgroundColor: "rgba(0,0,0,0.3)",
+    });
+    scene.add(statusSprites[index]);
+  }
 }
 
 // Animation loop
 function animate() {
   renderer.setAnimationLoop((timestamp) => {
+    update(lastLeftControllerSpeed);
     // Update playerHead position to match the camera (player's head)
     playerHead.position.copy(camera.position);
 
@@ -401,10 +408,10 @@ function animate() {
     // Check if the state has changed
     if (isCurrentlyLookingAtNPC !== isLookingAtNPC) {
       if (isCurrentlyLookingAtNPC) {
-        console.log("Looking at the NPC.");
+        // console.log("Looking at the NPC.");
         npcKid.children[0].material.color.set(0x00ff00); // Highlight NPC's head
       } else {
-        console.log("Not looking at the NPC.");
+        // console.log("Not looking at the NPC.");
         npcKid.children[0].material.color.set(0xff0000); // Reset NPC's head color
       }
       isLookingAtNPC = isCurrentlyLookingAtNPC; // Update the previous state
@@ -412,18 +419,18 @@ function animate() {
 
     // Back-turn timer logic
     if (isLookingAtNPC) {
-      console.log("Looking at the kid!");
+      // console.log("Looking at the kid!");
       if (isBackTurned) {
         totalBackTurnedDuration =
           (performance.now() - backTurnedStartTime) / 1000; // Convert to seconds
-        console.log(
-          `Back was turned for: ${totalBackTurnedDuration.toFixed(2)} seconds`
-        );
+        // console.log(
+        //   `Back was turned for: ${totalBackTurnedDuration.toFixed(2)} seconds`
+        // );
         backTurnedStartTime = null;
         isBackTurned = false;
       }
     } else {
-      console.log("Not looking at the kid");
+      // console.log("Not looking at the kid");
       if (!isBackTurned) {
         backTurnedStartTime = performance.now();
         isBackTurned = true;
@@ -445,11 +452,14 @@ function animate() {
 
         // Update controller speeds here if needed
         if (leftController && leftController.position) {
-          const leftDelta = leftController.position.distanceTo(leftPreviousPosition);
+          const leftDelta =
+            leftController.position.distanceTo(leftPreviousPosition);
           leftControllerSpeed = leftDelta / timeDelta;
         }
         if (rightController && rightController.position) {
-          const rightDelta = rightController.position.distanceTo(rightPreviousPosition);
+          const rightDelta = rightController.position.distanceTo(
+            rightPreviousPosition
+          );
           rightControllerSpeed = rightDelta / timeDelta;
         }
       }
@@ -460,10 +470,18 @@ function animate() {
       prevTimestamp = timestamp;
 
       // Update status values
-      const heightDiffResult = calculateHeightDifference(playerHead.position.y, npcKid.position.y);
-      const proximity = calculateProximity(playerHead.position, npcKid.position);
-      const gazeDirection = isLookingAtNPC ? "Looking at NPC" : "Not Looking at NPC";
-      
+      const heightDiffResult = calculateHeightDifference(
+        playerHead.position.y,
+        npcKid.position.y
+      );
+      const proximity = calculateProximity(
+        playerHead.position,
+        npcKid.position
+      );
+      const gazeDirection = isLookingAtNPC
+        ? "Looking at NPC"
+        : "Not Looking at NPC";
+
       // Update last speed values only when there's movement
       if (speedOfApproach !== 0) {
         lastSpeedOfApproach = speedOfApproach;
@@ -475,18 +493,97 @@ function animate() {
         lastRightControllerSpeed = rightControllerSpeed;
       }
 
-      updateStatusText(0, heightDiffResult.difference.toFixed(2) + ' units (' + heightDiffResult.sentiment + ')');
-      updateStatusText(1, proximity.distance.toFixed(2) + ' units');
-      updateStatusText(2, lastSpeedOfApproach.toFixed(2) + ' units/s');
+      updateStatusText(
+        0,
+        heightDiffResult.difference.toFixed(2) +
+          " units (" +
+          heightDiffResult.sentiment +
+          ")"
+      );
+      updateStatusText(1, proximity.distance.toFixed(2) + " units");
+      updateStatusText(2, lastSpeedOfApproach.toFixed(2) + " units/s");
       updateStatusText(3, gazeDirection);
-      updateStatusText(4, lastLeftControllerSpeed.toFixed(2) + ' units/s');
-      updateStatusText(5, lastRightControllerSpeed.toFixed(2) + ' units/s');
-      updateStatusText(6, totalBackTurnedDuration.toFixed(2) + ' seconds');
+      updateStatusText(4, lastLeftControllerSpeed.toFixed(2) + " units/s");
+      updateStatusText(5, lastRightControllerSpeed.toFixed(2) + " units/s");
+      updateStatusText(6, totalBackTurnedDuration.toFixed(2) + " seconds");
     }
-
     // Update controllers
     updateControllers(timestamp);
+    function update(speed) {
+      console.log(joyFromEmoter, madFromEmoter, sadFromEmoter);
+      let mouseSpeedCumulative = speed * 10;
+      // // Calculate mouse speed
+      // const dx = mouseX - lastMouseX;
+      // const dy = mouseY - lastMouseY;
+      // const mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+      // mouseSpeedCumulative = mouseSpeed * 0.1; // Scale speed
+      // // console.log(
+      // //   "🚀 ~ update ~ mouseSpeedCumulative:",
+      // //   mouseSpeedCumulative
+      // // );
+      // lastMouseX = mouseX;
+      // lastMouseY = mouseY;
+      if (speed == lastMouseSpeedCumulative) {
+        mouseSpeedCumulative = 0;
+      }
+      if (
+        joyFromEmoter < 1 &&
+        mouseSpeedCumulative > 0.01 &&
+        madFromEmoter < 0.1 &&
+        sadFromEmoter < 0.1
+      ) {
+        joyFromEmoter += 0.001 * mouseSpeedCumulative;
+      } else {
+        if (mouseSpeedCumulative < 0.01) {
+          joyFromEmoter -= 0.01;
+          madFromEmoter -= 0.01;
+          sadFromEmoter -= 0.01;
+        } else {
+          if (joyFromEmoter > 0) {
+            joyFromEmoter -= 0.001 * mouseSpeedCumulative;
+          }
+          if (
+            madFromEmoter < 1 &&
+            sadFromEmoter < 0.1 &&
+            mouseSpeedCumulative > 20
+          ) {
+            madFromEmoter += 0.001 * mouseSpeedCumulative;
+          } else {
+            if (joyFromEmoter > 0) {
+              joyFromEmoter -= 0.001 * mouseSpeedCumulative;
+            }
+            if (madFromEmoter > 0) {
+              console.log("🚀 ~ update ~ madFromEmoter", madFromEmoter);
+              madFromEmoter -= 0.001 * mouseSpeedCumulative;
+            }
+            if (sadFromEmoter < 1) {
+              if (mouseSpeedCumulative > 32) {
+                sadFromEmoter += 0.001 * mouseSpeedCumulative;
+              } else if (madFromEmoter < 0.1 && mouseSpeedCumulative < 32) {
+                sadFromEmoter -= 0.001 * mouseSpeedCumulative;
+              }
+            }
+          }
+        }
+      }
+      // // Calculate Neutral as remainder, ensuring non-negative
+      const total = joyFromEmoter + madFromEmoter + sadFromEmoter;
+      const neutral = Math.max(0, 1 - total);
+      if (neutral < 0) {
+        neutral = 0;
+      }
+      if (joyFromEmoter < 0) {
+        joyFromEmoter = 0;
+      }
+      if (madFromEmoter < 0) {
+        madFromEmoter = 0;
+      }
+      if (sadFromEmoter < 0) {
+        sadFromEmoter = 0;
+      }
 
+      lastMouseSpeedCumulative = speed;
+    }
     // Render the scene
     renderer.render(scene, camera);
   });
