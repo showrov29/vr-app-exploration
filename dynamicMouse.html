@@ -224,6 +224,10 @@
             madFromEmoter -= 0.01;
             sadFromEmoter -= 0.01;
           } else {
+            console.log(
+              "🚀 ~ update ~ mouseSpeedCumulative",
+              mouseSpeedCumulative
+            );
             if (joyFromEmoter > 0) {
               joyFromEmoter -= 0.001 * mouseSpeedCumulative;
             }
@@ -241,8 +245,12 @@
                 console.log("🚀 ~ update ~ madFromEmoter", madFromEmoter);
                 madFromEmoter -= 0.001 * mouseSpeedCumulative;
               }
-              if (sadFromEmoter < 1 && mouseSpeedCumulative > 32) {
-                sadFromEmoter += 0.001 * mouseSpeedCumulative;
+              if (sadFromEmoter < 1) {
+                if (mouseSpeedCumulative > 32) {
+                  sadFromEmoter += 0.001 * mouseSpeedCumulative;
+                } else if (madFromEmoter < 0.1 && mouseSpeedCumulative < 32) {
+                  sadFromEmoter -= 0.001 * mouseSpeedCumulative;
+                }
               }
             }
           }
