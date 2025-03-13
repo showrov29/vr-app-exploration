@@ -122,92 +122,128 @@
         // const total = joyFromEmoter + madFromEmoter + sadFromEmoter;
         // const neutral = Math.max(0, 1 - total);
 
-        if (mouseSpeedCumulative < 0.01) {
-          if (joyFromEmoter > 0) {
-            joyFromEmoter -= 0.008;
-          }
-          if (madFromEmoter > 0) {
-            madFromEmoter -= 0.004;
-          }
-          if (sadFromEmoter > 0) {
-            sadFromEmoter -= 0.004;
-          }
-        } 
-        if (mouseSpeedCumulative > 0.01 && mouseSpeedCumulative < 8) {
-          if (joyFromEmoter < 1) {
-            joyFromEmoter += 0.01;
-          }
-          if (madFromEmoter > 0) {
+        // if (mouseSpeedCumulative < 0.01) {
+        //   if (joyFromEmoter > 0) {
+        //     joyFromEmoter -= 0.008;
+        //   }
+        //   if (madFromEmoter > 0) {
+        //     madFromEmoter -= 0.004;
+        //   }
+        //   if (sadFromEmoter > 0) {
+        //     sadFromEmoter -= 0.004;
+        //   }
+        // }
+        // if (mouseSpeedCumulative > 0.01 && mouseSpeedCumulative < 8) {
+        //   if (joyFromEmoter < 1) {
+        //     joyFromEmoter += 0.01;
+        //   }
+        //   if (madFromEmoter > 0) {
+        //     madFromEmoter -= 0.01;
+        //   }
+        //   if (sadFromEmoter > 0) {
+        //     sadFromEmoter -= 0.04;
+        //   }
+        //   if (mouseSpeedCumulative < 32) {
+        //     swooning = 0;
+        //   }
+        //   if (mouseSpeedCumulative > 37) {
+        //     swooning = 1;
+        //     swoonCountOncer = 0;
+        //   }
+        // }
+        // //////////////////////////////////////////////////////////////////////////////////////////////////// MAD
+        // if (swooning == 0) {
+        //   if (mouseSpeedCumulative > 8 && mouseSpeedCumulative < 32) {
+        //     if (joyFromEmoter > 0) {
+        //       joyFromEmoter -= 0.006;
+        //     }
+        //     if (joyFromEmoter < 0.2 && madFromEmoter < 1) {
+        //       madFromEmoter += 0.01;
+        //     }
+        //     if (sadFromEmoter > 0) {
+        //       // console.log("🚀 ~ update ~ sadFromEmoter", sadFromEmoter);
+        //       sadFromEmoter -= 0.02;
+        //     }
+        //   }
+        // }
+        // if (swooning == 1) {
+        //   if (mouseSpeedCumulative > 8 && mouseSpeedCumulative < 37) {
+        //     if (joyFromEmoter > 0) {
+        //       joyFromEmoter -= 0.006;
+        //     }
+        //     if (joyFromEmoter < 0.2 && madFromEmoter < 1) {
+        //       madFromEmoter += 0.01;
+        //     }
+        //     if (sadFromEmoter > 0) {
+        //       sadFromEmoter -= 0.05;
+        //     }
+
+        //     if (swoonCountOncer == 0 && swoonCount < swoonMax) {
+        //       swoonCount += 1;
+        //       swoonCountOncer = 1;
+        //     }
+        //   }
+        // }
+
+        // if (swooning == 0) {
+        //   if (mouseSpeedCumulative > 32 && mouseSpeedCumulative < 205) {
+        //     if (joyFromEmoter > 0) {
+        //       joyFromEmoter -= 0.01;
+        //     }
+        //     if (madFromEmoter > 0) {
+        //       madFromEmoter -= 0.03;
+        //     }
+        //     if (sadFromEmoter < 1) {
+        //       sadFromEmoter += 0.03;
+        //     }
+        //   }
+        // }
+        // if (swooning == 1) {
+        //   if (mouseSpeedCumulative > 37 && mouseSpeedCumulative < 205) {
+        //     if (joyFromEmoter > 0) {
+        //       joyFromEmoter -= 0.01;
+        //     }
+        //     if (madFromEmoter > 0) {
+        //       madFromEmoter -= 0.03;
+        //     }
+        //     if (sadFromEmoter < 1) {
+        //       sadFromEmoter += 0.03;
+        //     }
+        //   }
+        // }
+        if (
+          joyFromEmoter < 1 &&
+          mouseSpeedCumulative > 0.01 &&
+          madFromEmoter < 0.1 &&
+          sadFromEmoter < 0.1
+        ) {
+          joyFromEmoter += 0.001 * mouseSpeedCumulative;
+        } else {
+          if (mouseSpeedCumulative < 0.01) {
+            joyFromEmoter -= 0.01;
             madFromEmoter -= 0.01;
-          }
-          if (sadFromEmoter > 0) {
-            sadFromEmoter -= 0.04;
-          }
-          if (mouseSpeedCumulative < 32) {
-            swooning = 0;
-          }
-          if (mouseSpeedCumulative > 37) {
-            swooning = 1;
-            swoonCountOncer = 0;
-          }
-        }
-        //////////////////////////////////////////////////////////////////////////////////////////////////// MAD
-        if (swooning == 0) {
-          if (mouseSpeedCumulative > 8 && mouseSpeedCumulative < 32) {
+            sadFromEmoter -= 0.01;
+          } else {
             if (joyFromEmoter > 0) {
-              joyFromEmoter -= 0.006;
+              joyFromEmoter -= 0.001 * mouseSpeedCumulative;
             }
-            if (joyFromEmoter < 0.2 && madFromEmoter < 1) {
-              madFromEmoter += 0.01;
-            }
-            if (sadFromEmoter > 0) {
-              // console.log("🚀 ~ update ~ sadFromEmoter", sadFromEmoter);
-              sadFromEmoter -= 0.02;
-            }
-          }
-        }
-        if (swooning == 1) {
-          if (mouseSpeedCumulative > 8 && mouseSpeedCumulative < 37) {
-            if (joyFromEmoter > 0) {
-              joyFromEmoter -= 0.006;
-            }
-            if (joyFromEmoter < 0.2 && madFromEmoter < 1) {
-              madFromEmoter += 0.01;
-            }
-            if (sadFromEmoter > 0) {
-              sadFromEmoter -= 0.05;
-            }
-
-            if (swoonCountOncer == 0 && swoonCount < swoonMax) {
-              swoonCount += 1;
-              swoonCountOncer = 1;
-            }
-          }
-        }
-
-        if (swooning == 0) {
-          if (mouseSpeedCumulative > 32 && mouseSpeedCumulative < 205) {
-            if (joyFromEmoter > 0) {
-              joyFromEmoter -= 0.01;
-            }
-            if (madFromEmoter > 0) {
-              madFromEmoter -= 0.03;
-            }
-            if (sadFromEmoter < 1) {
-              sadFromEmoter += 0.03;
-            }
-          }
-        }
-        if (swooning == 1) {
-          if (mouseSpeedCumulative > 37 && mouseSpeedCumulative < 205) {
-            if (joyFromEmoter > 0) {
-              joyFromEmoter -= 0.01;
-            }
-            if (madFromEmoter > 0) {
-              madFromEmoter -= 0.03;
-            }
-            if (sadFromEmoter < 1) {
-              sadFromEmoter += 0.03;
+            if (
+              madFromEmoter < 1 &&
+              sadFromEmoter < 0.1 &&
+              mouseSpeedCumulative > 20
+            ) {
+              madFromEmoter += 0.001 * mouseSpeedCumulative;
+            } else {
+              if (joyFromEmoter > 0) {
+                joyFromEmoter -= 0.001 * mouseSpeedCumulative;
+              }
+              if (madFromEmoter > 0) {
+                console.log("🚀 ~ update ~ madFromEmoter", madFromEmoter);
+                madFromEmoter -= 0.001 * mouseSpeedCumulative;
+              }
+              if (sadFromEmoter < 1 && mouseSpeedCumulative > 32) {
+                sadFromEmoter += 0.001 * mouseSpeedCumulative;
+              }
             }
           }
         }
